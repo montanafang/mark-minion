@@ -12,14 +12,13 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.4.5",
     "@cloudflare/workers-types": "^4.20240725.0",
-    "@types/turndown": "^5.0.5",
     "typescript": "^5.5.2",
     "vitest": "1.5.0",
     "wrangler": "^3.60.3"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
-    "react-tweet": "^3.2.1",
-    "turndown": "^7.2.0"
+    "process": "^0.11.10",
+    "react-tweet": "^3.2.1"
   }
 }

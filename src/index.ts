@@ -1,22 +1,23 @@
 import * as cheerio from "cheerio";
-import TurndownService from 'turndown';
 import { Tweet } from 'react-tweet/api'
+import { HTML } from "./webResponse";
 
 export default {
-	async fetch(req: Request, env: Env) { 
+	async fetch(req: Request, env: Env) {
 		const ip = req.headers.get('cf-connecting-ip');
 		if (!(env.BACKEND_SECURITY_TOKEN === req.headers.get('Authorization')?.replace('Bearer ', ''))) {
-			const { success } = await env.RENDER_RATE_LIMITER.limit({ key: ip });
+			return new Response('Unauthorised', { status: 401 });
+		}
+		const { success } = await env.RENDER_RATE_LIMITER.limit({ key: ip });
 
-			if (!success) {
-				return new Response('Rate limit exceeded', { status: 429 });
-			}
+		if (!success) {
+			return new Response('Rate limit exceeded', { status: 429 });
 		}
 		const obj = new Renderer(env)
 		const resp = obj.fetch(req)
 
 		return resp
-	 },
+	},
 };
 
 export class Renderer {
@@ -40,15 +41,16 @@ export class Renderer {
 		}
 
 		// Rate Limiter
-		const ipAddress = req.headers.get("cf-connecting-ip") || ""
+		const ipAddress = req.headers.get('cf-connecting-ip') || ""
 		if (!(this.env.BACKEND_SECURITY_TOKEN === req.headers.get('Authorization')?.replace('Bearer ', ''))) {
-			const { success } = await this.env.RENDER_RATE_LIMITER.limit({ key: ipAddress })
-
-			if (!success) {
-				return new Response('Rate limit exceeded', { status: 429 });
-			}
-
+			return new Response('Unauthorised', { status: 401 });
 		}
+		const { success } = await this.env.RENDER_RATE_LIMITER.limit({ key: ipAddress })
+
+		if (!success) {
+			return new Response('Rate limit exceeded', { status: 429 });
+		}
+
 
 		const url = new URL(req.url).searchParams.get('url');
 		const enableDetailedResponse = new URL(req.url).searchParams.get('detailed') === 'true';
@@ -65,13 +67,13 @@ export class Renderer {
 		}
 
 		if (!url) {
-			return new Response('Please provide a URL', { status: 400 });
+			return new Response('Provide an URL', { status: 400 });
 		}
 		if (!this.helper.isValidUrl(url)) {
 			return new Response('Invalid URL', { status: 400 });
 		}
 
-		return subpageCrawl ? this.crawlSubPages(url, enableDetailedResponse, contentType) : this.crawlSinglePage(url, enableDetailedResponse, contentType)
+		return subpageCrawl ? this.crawlSubPages(url, enableDetailedResponse) : this.crawlSinglePage(url, enableDetailedResponse, contentType)
 	}
 
 	async getWebsiteMarkdown({
@@ -85,16 +87,6 @@ export class Renderer {
 	}) {
 		return await Promise.all(
 			urls.map(async (url) => {
-				const ip = this.req?.headers.get('cf-connecting-ip');
-
-				if (this.token !== env.BACKEND_SECURITY_TOKEN) {
-					const { success } = await env.RENDER_RATE_LIMITER.limit({ key: ip });
-
-					if (!success) {
-						return { url, md: 'Rate limit exceeded' };
-					}
-				}
-
 				const id = url + (enableDetailedResponse ? '-detailed' : '') + (this.llmFilter ? '-llm' : '');
 				const cached = await env.BROWSER_KV.get(id);
 
@@ -123,8 +115,6 @@ export class Renderer {
 				let md = cached ?? (await this.helper.fetchAndProcessPage(url, enableDetailedResponse));
 
 				if (this.llmFilter && !cached) {
-					// for (let i = 0; i < 60; i++) await env.RENDER_RATE_LIMITER.limit({ key: ip });
-
 					const AgentResponse = (
 						await env.AI_AGENT.run('@cf/mistral/mistral-7b-instruct-v0.1', {
 							prompt: `You are an AI assistant whose work is to convert webpage content into markdown at the same time filtering out unnecessary information. Follow the given guidelines:
@@ -136,10 +126,9 @@ export class Renderer {
 						})) as { response: string }
 
 					md = AgentResponse.response
-					console.log(AgentResponse)
 				}
 				await env.BROWSER_KV.put(id, md, { expirationTtl: 1800 })
-				return { url, md }
+				return { id, md }
 			}))
 	}
 
@@ -154,6 +143,7 @@ export class Renderer {
 			let status = 200;
 			if (md.some((item) => item.md === 'Rate limit exceeded')) {
 				status = 429;
+				return new Response('Rate limit exceeded', { status: status });
 			}
 			return new Response(JSON.stringify(md), { status: status });
 		} else {
@@ -162,7 +152,7 @@ export class Renderer {
 			});
 		}
 	}
-	async crawlSubPages(baseUrl: string, enableDetailedResponse: boolean, contentType: string) {
+	async crawlSubPages(baseUrl: string, enableDetailedResponse: boolean) {
 		const links = await this.helper.extractLinks(baseUrl);
 		const uniqueLinks = Array.from(new Set(links)).splice(0, 10);
 		const md = await this.getWebsiteMarkdown({
@@ -186,14 +176,37 @@ export class Helpers {
 	}
 
 	async extractLinks(url: string): Promise<string[]> {
-		const response = await fetch(url)
-		const html = await response.text()
-		const $ = cheerio.load(html)
+		const response = await fetch(url);
+		const html = await response.text();
+		const $ = cheerio.load(html);
 
-		return $('a')
-			.map((_, elem) => $(elem).attr('href'))
+		// Extract the base URL
+		const baseUrl = new URL(url).origin;
+
+		return $("a")
+			.map((_, elem) => {
+				const href = $(elem).attr("href");
+				if (!href) return null;
+
+				// Handle relative URLs
+				if (href.startsWith('/')) {
+					return new URL(href, baseUrl).href;
+				}
+
+				// Check if the href is from the same domain
+				try {
+					const hrefUrl = new URL(href);
+					if (hrefUrl.origin === baseUrl) {
+						return href;
+					}
+				} catch (e) {
+					// Invalid URL, ignore
+				}
+
+				return null;
+			})
 			.get()
-			.filter((link) => link && link.startsWith(url));
+			.filter(Boolean); // Remove null values
 	}
 
 	async handleTweet(tweetId: string): Promise<Tweet> {
@@ -216,6 +229,45 @@ export class Helpers {
 		return data
 	}
 
+	htmlToMarkdown(html: string): string {
+		const $ = cheerio.load(html);
+
+		function processNode(node: any): string {
+			if (node.type === 'text') {
+				return node.data || '';
+			}
+
+			if (node.type !== 'tag') {
+				return '';
+			}
+
+			const children = $(node).contents().map((_, el) => processNode(el)).get().join('');
+
+			switch (node.tagName.toLowerCase()) {
+				case 'h1': return `# ${children}\n\n`;
+				case 'h2': return `## ${children}\n\n`;
+				case 'h3': return `### ${children}\n\n`;
+				case 'h4': return `#### ${children}\n\n`;
+				case 'h5': return `##### ${children}\n\n`;
+				case 'h6': return `###### ${children}\n\n`;
+				case 'p': return `${children}\n\n`;
+				case 'strong':
+				case 'b': return `**${children}**`;
+				case 'em':
+				case 'i': return `*${children}*`;
+				case 'a': return `[${children}](${$(node).attr('href')})`;
+				case 'code': return `\`${children}\``;
+				case 'pre': return `\`\`\`\n${children}\n\`\`\`\n\n`;
+				case 'ul':
+				case 'ol': return $(node).children().map((_, li) => `- ${$(li).text().trim()}`).get().join('\n') + '\n\n';
+				case 'br': return '\n';
+				default: return children;
+			}
+		}
+
+		return $('body').contents().map((_, el) => processNode(el)).get().join('').trim();
+	}
+
 	async fetchAndProcessPage(url: string, enableDetailedResponse: boolean) {
 		const response = await fetch(url);
 		const html = await response.text();
@@ -229,10 +281,16 @@ export class Helpers {
 		if (!content) {
 			return 'No content found';
 		}
-
-		const turndownService = new TurndownService();
-		const md = turndownService.turndown(content)
-		console.log(turndownService.turndown(content))
+		console.log(content)
+		const md = this.htmlToMarkdown(content)
 		return md;
+	}
+
+	intialResponse() {
+		return new Response(HTML, {
+			headers: {
+				'content-type': 'text/html;charset=UTF-8'
+			}
+		})
 	}
 }
