@@ -6,12 +6,16 @@ export default {
 	async fetch(req: Request, env: Env) {
 		const ip = req.headers.get('cf-connecting-ip');
 		if (!(env.BACKEND_SECURITY_TOKEN === req.headers.get('Authorization')?.replace('Bearer ', ''))) {
-			return new Response('Unauthorised', { status: 401 });
-		}
-		const { success } = await env.RENDER_RATE_LIMITER.limit({ key: ip });
+			const url = new URL(req.url).searchParams.get('url');
+			if(!url) {
+				const helper = new Helpers()
+				return helper.intialResponse()
+			}
+			const { success } = await env.RENDER_RATE_LIMITER.limit({ key: ip });
 
-		if (!success) {
-			return new Response('Rate limit exceeded', { status: 429 });
+			if (!success) {
+				return new Response('Rate limit exceeded', { status: 429 });
+			}
 		}
 		const obj = new Renderer(env)
 		const resp = obj.fetch(req)
@@ -43,12 +47,11 @@ export class Renderer {
 		// Rate Limiter
 		const ipAddress = req.headers.get('cf-connecting-ip') || ""
 		if (!(this.env.BACKEND_SECURITY_TOKEN === req.headers.get('Authorization')?.replace('Bearer ', ''))) {
-			return new Response('Unauthorised', { status: 401 });
-		}
-		const { success } = await this.env.RENDER_RATE_LIMITER.limit({ key: ipAddress })
+			const { success } = await this.env.RENDER_RATE_LIMITER.limit({ key: ipAddress })
 
 		if (!success) {
 			return new Response('Rate limit exceeded', { status: 429 });
+		}
 		}
 
 
@@ -123,6 +126,7 @@ export class Renderer {
 						Make the content clean, readable markdown.
 						Input: ${md}
 						Output: \`\`\`markdown\n`,
+						temperature: 0.2
 						})) as { response: string }
 
 					md = AgentResponse.response
@@ -140,15 +144,10 @@ export class Renderer {
 			env: this.env
 		})
 		if (contentType === 'json') {
-			let status = 200;
-			if (md.some((item) => item.md === 'Rate limit exceeded')) {
-				status = 429;
-				return new Response('Rate limit exceeded', { status: status });
-			}
-			return new Response(JSON.stringify(md), { status: status });
+			return new Response(JSON.stringify(md), { status: 200 });
 		} else {
 			return new Response(md[0].md, {
-				status: md[0].md === 'Rate limit exceeded' ? 429 : 200,
+				status: 200,
 			});
 		}
 	}
@@ -162,9 +161,6 @@ export class Renderer {
 		});
 
 		let status = 200;
-		if (md.some((item) => item.md === 'Rate limit exceeded')) {
-			status = 429;
-		}
 
 		return new Response(JSON.stringify(md), { status: status });
 	}
@@ -281,7 +277,6 @@ export class Helpers {
 		if (!content) {
 			return 'No content found';
 		}
-		console.log(content)
 		const md = this.htmlToMarkdown(content)
 		return md;
 	}

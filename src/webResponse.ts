@@ -18,7 +18,7 @@ export const HTML = `
 			<h1 class="text-4xl font-bold mb-2">Web to Markdown Converter</h1>
 			<p class="text-gray-600 mb-8">Convert any web page to Markdown for use with language models.</p>
 
-			<form class="space-y-6">
+			<form id="convertForm" class="space-y-6">
 				<div>
 					<label for="url" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
 					<input
@@ -35,21 +35,21 @@ export const HTML = `
 					<div class="flex items-center justify-between">
 						<span class="text-sm font-medium text-gray-700">Detailed Response</span>
 						<label class="switch">
-							<input type="checkbox" class="sr-only peer" />
+							<input type="checkbox" id="detailed" class="sr-only peer" />
 							<span class="slider round bg-gray-200 peer-checked:bg-blue-600"></span>
 						</label>
 					</div>
 					<div class="flex items-center justify-between">
 						<span class="text-sm font-medium text-gray-700">Crawl Subpages</span>
 						<label class="switch">
-							<input type="checkbox" class="sr-only peer" />
+							<input type="checkbox" id="subpage" class="sr-only peer" />
 							<span class="slider round bg-gray-200 peer-checked:bg-blue-600"></span>
 						</label>
 					</div>
 					<div class="flex items-center justify-between">
 						<span class="text-sm font-medium text-gray-700">Unnecessary Filter</span>
 						<label class="switch">
-							<input type="checkbox" class="sr-only peer" />
+							<input type="checkbox" id="unnecessaryfilter" class="sr-only peer" />
 							<span class="slider round bg-gray-200 peer-checked:bg-blue-600"></span>
 						</label>
 					</div>
@@ -130,6 +130,7 @@ $ curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&contentt
 			document.addEventListener('DOMContentLoaded', function () {
 				const textBtn = document.getElementById('textBtn');
 				const jsonBtn = document.getElementById('jsonBtn');
+				const form = document.getElementById('convertForm');
 
 				function toggleContentType(activeBtn, inactiveBtn) {
 					activeBtn.classList.remove('bg-white', 'border', 'border-gray-300');
@@ -145,6 +146,23 @@ $ curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&contentt
 
 				jsonBtn.addEventListener('click', function () {
 					toggleContentType(jsonBtn, textBtn);
+				});
+
+				form.addEventListener('submit', function (event) {
+					event.preventDefault();
+					const url = document.getElementById('url').value;
+					const detailed = document.getElementById('detailed').checked;
+					const subpage = document.getElementById('subpage').checked;
+					const unnecessaryfilter = document.getElementById('unnecessaryfilter').checked;
+					const contenttype = textBtn.classList.contains('bg-black') ? 'text/plain' : 'application/json';
+
+					let redirectURL = \`/?url=\${encodeURIComponent(url)}\`;
+					if (detailed) redirectURL += '&detailed=true';
+					if (subpage) redirectURL += '&subpage=true';
+					if (unnecessaryfilter) redirectURL += '&unnecessaryfilter=true';
+					redirectURL += \`&contenttype=\${contenttype}\`;
+
+					window.location.href = redirectURL;
 				});
 			});
 		</script>
