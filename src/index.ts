@@ -227,18 +227,18 @@ export class Helpers {
 
 	htmlToMarkdown(html: string): string {
 		const $ = cheerio.load(html);
-
+	
 		function processNode(node: any): string {
 			if (node.type === 'text') {
-				return node.data || '';
+				return node.data.replace(/\s+/g, ' ').trim() || '';
 			}
-
+	
 			if (node.type !== 'tag') {
 				return '';
 			}
-
+	
 			const children = $(node).contents().map((_, el) => processNode(el)).get().join('');
-
+	
 			switch (node.tagName.toLowerCase()) {
 				case 'h1': return `# ${children}\n\n`;
 				case 'h2': return `## ${children}\n\n`;
@@ -255,12 +255,32 @@ export class Helpers {
 				case 'code': return `\`${children}\``;
 				case 'pre': return `\`\`\`\n${children}\n\`\`\`\n\n`;
 				case 'ul':
-				case 'ol': return $(node).children().map((_, li) => `- ${$(li).text().trim()}`).get().join('\n') + '\n\n';
+				case 'ol': return $(node).children().map((_, li) => `- ${processNode(li)}`).get().join('\n') + '\n\n';
+				case 'li': return processNode($(node).contents()[0]);
+				case 'img': return `![${$(node).attr('alt') || ''}](${$(node).attr('src')})\n\n`;
+				case 'blockquote': return `> ${children.split('\n').join('\n> ')}\n\n`;
 				case 'br': return '\n';
+				case 'table': return processTable(node);
 				default: return children;
 			}
 		}
-
+	
+		function processTable(tableNode: any): string {
+			let output = "Table content:\n\n";
+			const headers = $(tableNode).find('th').map((_, th) => $(th).text().trim()).get();
+			if (headers.length > 0) {
+				output += "Headers:\n" + headers.map(header => `- ${header}`).join('\n') + "\n\n";
+			}
+			$(tableNode).find('tr').each((_, row) => {
+				const cells = $(row).find('td').map((_, cell) => $(cell).text().trim()).get();
+				if (cells.length > 0) {
+					output += "Row:\n" + cells.map(cell => `  - ${cell}`).join('\n') + "\n\n";
+				}
+			});
+		
+			return output;
+		}
+	
 		return $('body').contents().map((_, el) => processNode(el)).get().join('').trim();
 	}
 
