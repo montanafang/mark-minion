@@ -40,25 +40,11 @@ export const HTML = `
 						</label>
 					</div>
 					<div class="flex items-center justify-between">
-						<span class="text-sm font-medium text-gray-700">Crawl Subpages</span>
-						<label class="switch">
-							<input type="checkbox" id="subpage" class="sr-only peer" />
-							<span class="slider round bg-gray-200 peer-checked:bg-blue-600"></span>
-						</label>
-					</div>
-					<div class="flex items-center justify-between">
 						<span class="text-sm font-medium text-gray-700">Unnecessary Filter</span>
 						<label class="switch">
 							<input type="checkbox" id="unnecessaryfilter" class="sr-only peer" />
 							<span class="slider round bg-gray-200 peer-checked:bg-blue-600"></span>
 						</label>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-sm font-medium text-gray-700">Content Type</span>
-						<div class="flex space-x-2">
-							<button type="button" id="textBtn" class="px-3 py-1 bg-black text-white rounded-md content-type-btn">Text</button>
-							<button type="button" id="jsonBtn" class="px-3 py-1 bg-white border border-gray-300 rounded-md content-type-btn">JSON</button>
-						</div>
 					</div>
 				</div>
 
@@ -84,7 +70,7 @@ export const HTML = `
 				</ul>
 				<p class="font-medium mb-2">Example:</p>
 				<pre class="bg-gray-100 p-3 rounded-md overflow-x-auto">
-$ curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&contenttype=text/plain'
+$ curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&subpage=true'
             </pre
 				>
 			</div>
@@ -128,39 +114,16 @@ $ curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&contentt
 
 		<script>
 			document.addEventListener('DOMContentLoaded', function () {
-				const textBtn = document.getElementById('textBtn');
-				const jsonBtn = document.getElementById('jsonBtn');
-				const form = document.getElementById('convertForm');
-
-				function toggleContentType(activeBtn, inactiveBtn) {
-					activeBtn.classList.remove('bg-white', 'border', 'border-gray-300');
-					activeBtn.classList.add('bg-black', 'text-white');
-
-					inactiveBtn.classList.remove('bg-black', 'text-white');
-					inactiveBtn.classList.add('bg-white', 'border', 'border-gray-300');
-				}
-
-				textBtn.addEventListener('click', function () {
-					toggleContentType(textBtn, jsonBtn);
-				});
-
-				jsonBtn.addEventListener('click', function () {
-					toggleContentType(jsonBtn, textBtn);
-				});
-
+			const form = document.getElementById('convertForm');
 				form.addEventListener('submit', function (event) {
 					event.preventDefault();
 					const url = document.getElementById('url').value;
 					const detailed = document.getElementById('detailed').checked;
-					const subpage = document.getElementById('subpage').checked;
 					const unnecessaryfilter = document.getElementById('unnecessaryfilter').checked;
-					const contenttype = textBtn.classList.contains('bg-black') ? 'text/plain' : 'application/json';
 
 					let redirectURL = \`/?url=\${encodeURIComponent(url)}\`;
 					if (detailed) redirectURL += '&detailed=true';
-					if (subpage) redirectURL += '&subpage=true';
 					if (unnecessaryfilter) redirectURL += '&unnecessaryfilter=true';
-					redirectURL += \`&contenttype=\${contenttype}\`;
 
 					window.location.href = redirectURL;
 				});

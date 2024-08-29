@@ -59,7 +59,7 @@ export class Renderer {
 		const enableDetailedResponse = new URL(req.url).searchParams.get('detailed') === 'true';
 		const subpageCrawl = new URL(req.url).searchParams.get('subpage') === 'true';
 		const unnecessaryFilter = new URL(req.url).searchParams.get('unnecessaryfilter') === 'true';
-		const contentType = new URL(req.url).searchParams.get('contenttype') === 'application/json' ? 'json' : 'text';
+		const contentType = req.headers.get('content-type') === 'application/json' ? 'json' : 'text';
 		const token = req.headers.get('Authorization')?.replace('Bearer ', '');
 
 		this.token = token ?? '';
@@ -206,7 +206,7 @@ export class Helpers {
 	}
 
 	async handleTweet(tweetId: string): Promise<Tweet> {
-		const url = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&features=tfw_timeline_list%3A%3Btfw_follower_count_sunset%3Atrue%3Btfw_tweet_edit_backend%3Aon%3Btfw_refsrc_session%3Aon%3Btfw_fosnr_soft_interventions_enabled%3Aon%3Btfw_show_birdwatch_pivots_enabled%3Aon%3Btfw_show_business_verified_badge%3Aon%3Btfw_duplicate_scribes_to_settings%3Aon%3Btfw_use_profile_image_shape_enabled%3Aon%3Btfw_show_blue_verified_badge%3Aon%3Btfw_legacy_timeline_sunset%3Atrue%3Btfw_show_gov_verified_badge%3Aon%3Btfw_show_business_affiliate_badge%3Aon%3Btfw_tweet_edit_frontend%3Aon&token=4c2mmul6mnh`;
+		const url = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&features=tfw_timeline_list%3A%3Btfw_follower_count_sunset%3Atrue%3Btfw_tweet_edit_backend%3Aon%3Btfw_refsrc_session%3Aon%3Btfw_fosnr_soft_interventions_enabled%3Aon%3Btfw_show_birdwatch_pivots_enabled%3Aon%3Btfw_show_business_verified_badge%3Aon%3Btfw_duplicate_scribes_to_settings%3Aon%3Btfw_use_profile_image_shape_enabled%3Aon%3Btfw_show_blue_verified_badge%3Aon%3Btfw_legacy_timeline_sunset%3Atrue%3Btfw_show_gov_verified_badge%3Aon%3Btfw_show_business_affiliate_badge%3Aon%3Btfw_tweet_edit_frontend%3Aon&token=4iace3gbq7`;
 
 		const resp = await fetch(url, {
 			headers: {
