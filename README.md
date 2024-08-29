@@ -43,4 +43,4 @@ Markminion can be used as an API by making a GET request to the root endpoint wi
 Example API call:
 
 ```bash
-curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&contenttype=text/plain'
+curl 'https://markminion.dhruvvakharwala.dev/?url=https://example.com&subpage=true'
